@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "slp.name" . }}
+  namespace:  {{ .Values.namespace }}
+  labels:
+    {{- include "slp.labels" . | nindent 4 }}
+spec:
+  ports:
+    - port: {{ .Values.service.port }}
+      name: https
+  selector:
+    app: {{ include "slp.name" . }}
+

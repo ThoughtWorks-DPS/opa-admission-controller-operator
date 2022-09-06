@@ -1,0 +1,61 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "slp.name" . }}
+  namespace:  {{ .Values.namespace }}
+  labels:
+    {{- include "slp.labels" . | nindent 4 }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: {{ include "slp.name" . }}
+  template:
+    metadata:
+      labels:
+        app: {{ include "slp.name" . }}
+      name: {{ include "slp.name" . }}
+    spec:
+      serviceAccountName: {{ include "slp.name" . }}
+      containers:
+        - image: {{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}-envoy-rootless
+          name: opa
+          ports:
+          - containerPort: 443
+          args: # need to get all the other opa args in here
+          - "run"
+          - "--server"
+          - "--tls-cert-file=/certs/tls.crt"
+          - "--tls-private-key-file=/certs/tls.key"
+          - "--addr=0.0.0.0:443"
+          - "/policies/inject.rego"
+          livenessProbe:
+            httpGet:
+              path: /health?plugins
+              scheme: HTTPS
+              port: 443
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          readinessProbe:
+            httpGet:
+              path: /health?plugins
+              scheme: HTTPS
+              port: 443
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          volumeMounts:
+            - name: server-cert
+              readOnly: true
+              mountPath: /certs
+              
+            - name: inject-policy
+              readOnly: true
+              mountPath: /policies
+              
+      volumes:
+        - name: inject-policy
+          configMap:
+            name: inject-policy
+        - name: server-cert
+          secret:
+            secretName: server-cert
